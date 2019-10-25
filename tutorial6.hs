@@ -123,6 +123,7 @@ substitute _ F = F
 substitute f (Not p)     =  Not (substitute f p)
 substitute f (p :|: q)   =  substitute f p :|: substitute f q
 substitute f (p :&: q)   =  substitute f p :&: substitute f q
+substitute f (p :->:q)   =  substitute f p :->: substitute f q
 substitute f (V a)  = V (f a)
 
 -- evaluate a Wff whose atoms are Booleans
@@ -132,7 +133,8 @@ evaluate F = False
 evaluate (Not p)     = not (evaluate p)
 evaluate (p :&: q)   = evaluate p && evaluate q
 evaluate (p :|: q)   = evaluate p || evaluate q
--- evaluate (p :->: q)  = evaluate p <= evaluate q
+evaluate (p :->: q)  = evaluate p <= evaluate q
+evaluate (p :<->: q) = evaluate p == evaluate q
 evaluate (V b)  = b
 
 -- evaluates a wff in a given environment
@@ -148,6 +150,9 @@ atoms (T)         = []
 atoms (Not p)     = atoms p
 atoms (p :|: q)   = nub (atoms p ++ atoms q)
 atoms (p :&: q)   = nub (atoms p ++ atoms q)
+atoms (p :->: q)  = nub (atoms p ++ atoms q)
+atoms (p :<->: q)  = nub (atoms p ++ atoms q)
+
 
 -- creates all possible truth assignments for a set of atoms
 envs :: [a] -> [Env a]
@@ -188,27 +193,33 @@ prop_taut :: Eq a => Wff a -> Bool
 prop_taut p  = prop_taut1 p == prop_taut2 p
 
 -- 6.
-wff3 = undefined
-wff4 = undefined
+wff3 = (V P :->: V Q) :&: (V P :&: (Not (V Q)))
+wff4 = (V P :<->: V Q) :&: (V P :&: Not (V Q)) :|: (Not (V P) :&: V Q)
 
 -- 7.
 equivalent :: Eq a =>  Wff a -> Wff a -> Bool
-equivalent = undefined
+equivalent wffa wffb = and [eval env wffa == eval env wffb | env <- envs (atoms wffa)]
 
 -- 8.
 subformulas :: Eq a => Wff a -> [Wff a]
-subformulas = undefined
+subformulas (V P) = [V P]
+subformulas (Not (V P)) = Not (V P) : subformulas (V P)
+subformulas (V P :|: V Q) = nub ((V P :|: V Q) : subformulas (V P) : subformulas (V Q))
+subformulas (V P :&: V Q) = nub ((V P :&: V Q) : subformulas (V P) : subformulas (V Q))
+subformulas (V P :->: V Q) = nub ((V P :->: V Q) : subformulas (V P) : subformulas (V Q))
+subformulas (V P :<->: V Q) = nub ((V P :<->: V Q) : subformulas (V P) : subformulas (V Q))
+
 
 -- 9.
-wff5 = undefined
+wff5 = (V P :|: V Q) :&: (Not (V P) :&: Not (V Q))
 
-wff6 = undefined 
+wff6 = (V P :->: V Q) :&: (V P :<->: V Q) 
 
 equivalent' :: Eq a => Wff a -> Wff a -> Bool
-equivalent' = undefined
+equivalent' wff1 wff2 = tautology (wff1 :&: wff2) || tautology (Not (wff1 :|: wff2)) 
 
 prop_equivalent :: Eq a =>  Wff a -> Wff a -> Bool
-prop_equivalent = undefined
+prop_equivalent wff1 wff2 = equivalent wff1 wff2 == equivalent' wff1 wff2
 
 --------------------------------------------------
 --------------------------------------------------
@@ -219,7 +230,20 @@ prop_equivalent = undefined
 -- 10.
 -- check for negation normal form
 isNNF :: Wff a -> Bool
-isNNF = undefined
+isNNF T = True
+isNNF F = True
+isNNF (Not(V P :|: V Q)) = False
+isNNF (Not(V P :&: V Q)) = False
+isNNF (Not(V P :->: V Q)) = False
+isNNF (Not(V P :<->: V Q)) = False
+
+isNNF (Not (V P)) = True
+isNNF (V P) = True
+isNNF (V P :|: V Q)) = True && isNNF (V P) && isNNF (V Q)
+isNNF (V P :&: V Q)) = True && isNNF (V P) && isNNF (V Q)
+isNNF (V P :->: V Q) = True && isNNF (V P) && isNNF (V Q)
+isNNF (V P :<->: V Q) = True && isNNF (V P) && isNNF (V Q)
+-------------------
 
 -- 11.
 -- convert to negation normal form
@@ -311,16 +335,16 @@ pretty e = showsPrec 0 e ""
          (showsPrec 2 a .showSpace .
           showString "|" . showSpace . 
           showsPrec 2 b )
-    -- showsPrec p (a :->: b)
-    --   = showParen (p>1)
-    --      (showsPrec 1 a .showSpace .
-    --       showString "->" . showSpace . 
-    --       showsPrec 2 b )
-    -- showsPrec p (a :<->: b)
-    --   = showParen (p>0)
-    --      (showsPrec 0 a .showSpace .
-    --       showString "<->" . showSpace . 
-    --       showsPrec 0 b )
+    showsPrec p (a :->: b)
+      = showParen (p>1)
+         (showsPrec 1 a .showSpace .
+          showString "->" . showSpace . 
+          showsPrec 2 b )
+    showsPrec p (a :<->: b)
+      = showParen (p>0)
+         (showsPrec 0 a .showSpace .
+          showString "<->" . showSpace . 
+          showsPrec 0 b )
     showsPrec _ (Not a) = 
       showString "~" . showsPrec 11 a
     showString :: String -> String -> String
