@@ -198,16 +198,16 @@ wff4 = (V P :<->: V Q) :&: (V P :&: Not (V Q)) :|: (Not (V P) :&: V Q)
 
 -- 7.
 equivalent :: Eq a =>  Wff a -> Wff a -> Bool
-equivalent wffa wffb = and [eval env wffa == eval env wffb | env <- envs (atoms wffa)]
+equivalent wffa wffb = and [eval env wffa == eval env wffb | env <- envs (nub (atoms wffa ++ atoms wffb))]
 
 -- 8.
 subformulas :: Eq a => Wff a -> [Wff a]
-subformulas (V P) = [V P]
-subformulas (Not (V P)) = Not (V P) : subformulas (V P)
-subformulas (V P :|: V Q) = nub ((V P :|: V Q) : subformulas (V P) : subformulas (V Q))
-subformulas (V P :&: V Q) = nub ((V P :&: V Q) : subformulas (V P) : subformulas (V Q))
-subformulas (V P :->: V Q) = nub ((V P :->: V Q) : subformulas (V P) : subformulas (V Q))
-subformulas (V P :<->: V Q) = nub ((V P :<->: V Q) : subformulas (V P) : subformulas (V Q))
+subformulas (Not p) = Not p : subformulas p
+subformulas (p :|: q) = nub ((p :|: q) : subformulas p ++ subformulas q)
+subformulas (p :&: q) = nub ((p :&: q) : subformulas p ++ subformulas q)
+subformulas (p :->: q) = nub ((p :->: q) : subformulas p ++ subformulas q)
+subformulas (p :<->: q) = nub ((p :<->: q) : subformulas p ++ subformulas q)
+subformulas (p) = [p]
 
 
 -- 9.
@@ -232,23 +232,28 @@ prop_equivalent wff1 wff2 = equivalent wff1 wff2 == equivalent' wff1 wff2
 isNNF :: Wff a -> Bool
 isNNF T = True
 isNNF F = True
-isNNF (Not(V P :|: V Q)) = False
-isNNF (Not(V P :&: V Q)) = False
-isNNF (Not(V P :->: V Q)) = False
-isNNF (Not(V P :<->: V Q)) = False
+isNNF (V _) = True
+isNNF (Not (V _)) = True
+-- isNNF (Not(p :|: q)) = False
+-- isNNF (Not(p :&: q)) = False
+isNNF (Not p) = False
+isNNF (_ :->: _) = False
+isNNF (_ :<->: _) = False
+-- isNNF (Not(p :->: q)) = False
+-- isNNF (Not(p :<->: q)) = False
 
-isNNF (Not (V P)) = True
-isNNF (V P) = True
-isNNF (V P :|: V Q)) = True && isNNF (V P) && isNNF (V Q)
-isNNF (V P :&: V Q)) = True && isNNF (V P) && isNNF (V Q)
-isNNF (V P :->: V Q) = True && isNNF (V P) && isNNF (V Q)
-isNNF (V P :<->: V Q) = True && isNNF (V P) && isNNF (V Q)
+
+isNNF (p :|: q) = True && isNNF (p) && isNNF (q)
+isNNF (p :&: q) = True && isNNF (p) && isNNF (q)
 -------------------
 
 -- 11.
 -- convert to negation normal form
 impElim :: Wff a -> Wff a
-impElim = undefined
+impElim (Not (p :&: q)) = (Not p) :|: (Not q)
+impElim (Not (p :|: q)) = (Not p) :&: (Not q)
+impElim (p :->: q) = (Not p) :|: q
+impElim (p :<->: q) = (p :->: q) :&: (q :->: p)
 
 toNNF :: Wff a -> Wff a
 toNNF = undefined
